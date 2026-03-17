@@ -158,9 +158,9 @@ function typeTerminal(lines, contents) {
     const line = lines[lineIndex];
     const content = contents[lineIndex];
     line.style.display = '';
-    line.innerHTML = '';
 
     const textContent = line.textContent || '';
+    line.innerHTML = '';
     let charIndex = 0;
 
     function typeChar() {
