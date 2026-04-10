@@ -7,10 +7,11 @@ const LON_COUNT = 16;
 const LAT_COUNT = 12;
 const PTS_PER_LINE = 72;
 const FOV = 600;
-const BASE_SPEED = 0.002;
-const HOVER_SPEED = 0.008; // faster rotation when cursor is over globe
-const CURSOR_GLOW_R = 200; // px — how far cursor brightens wireframe
-const CURSOR_BULGE = 35;   // px — how far points bulge toward cursor
+const AUTO_SPEED = 0.0015;
+const DRAG_SENSITIVITY = 0.005;
+const FRICTION = 0.95;        // velocity decay per frame
+const CURSOR_GLOW_R = 200;
+const CURSOR_BULGE = 30;
 
 const RINGS = [
   { tiltX: 0.25, tiltZ: 0.12, radius: SPHERE_R + 40, speed: 0.007, dots: 100 },
@@ -20,28 +21,40 @@ const RINGS = [
 
 interface Vec3 { x: number; y: number; z: number }
 
-function rotY(p: Vec3, a: number): Vec3 {
+function rY(p: Vec3, a: number): Vec3 {
   const c = Math.cos(a), s = Math.sin(a);
   return { x: p.x * c - p.z * s, y: p.y, z: p.x * s + p.z * c };
 }
-function rotX(p: Vec3, a: number): Vec3 {
+function rX(p: Vec3, a: number): Vec3 {
   const c = Math.cos(a), s = Math.sin(a);
   return { x: p.x, y: p.y * c - p.z * s, z: p.y * s + p.z * c };
 }
-function rotZ(p: Vec3, a: number): Vec3 {
+function rZ(p: Vec3, a: number): Vec3 {
   const c = Math.cos(a), s = Math.sin(a);
   return { x: p.x * c - p.y * s, y: p.x * s + p.y * c, z: p.z };
 }
-function proj(p: Vec3, cx: number, cy: number): { x: number; y: number; z: number } {
+function proj(p: Vec3, cx: number, cy: number) {
   const s = FOV / (FOV + p.z);
   return { x: cx + p.x * s, y: cy + p.y * s, z: p.z };
 }
 
 export default function OrbitalGlobe() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const mouse = useRef({ nx: 0.5, ny: 0.5, px: -9999, py: -9999, over: false });
   const raf = useRef(0);
   const reduced = useReducedMotion();
+
+  // Drag state
+  const drag = useRef({
+    active: false,
+    lastX: 0,
+    lastY: 0,
+    velY: 0,     // rotational velocity around Y
+    velX: 0,     // rotational velocity around X
+    angleY: 0,   // accumulated drag rotation Y
+    angleX: 0.2, // accumulated drag rotation X (slight initial tilt)
+    mouseX: -9999,
+    mouseY: -9999,
+  });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -71,80 +84,109 @@ export default function OrbitalGlobe() {
     window.addEventListener("resize", resize);
 
     const container = getContainer();
-    function onMouseMove(e: MouseEvent) {
-      if (!container) return;
-      const r = container.getBoundingClientRect();
-      mouse.current.nx = (e.clientX - r.left) / r.width;
-      mouse.current.ny = (e.clientY - r.top) / r.height;
-      mouse.current.px = e.clientX - r.left;
-      mouse.current.py = e.clientY - r.top;
-      mouse.current.over = true;
+    const d = drag.current;
+
+    // ── Pointer events for drag ──
+    function onPointerDown(e: PointerEvent) {
+      d.active = true;
+      d.lastX = e.clientX;
+      d.lastY = e.clientY;
+      d.velY = 0;
+      d.velX = 0;
+      (e.target as HTMLElement)?.setPointerCapture?.(e.pointerId);
     }
-    function onMouseLeave() {
-      mouse.current.over = false;
+    function onPointerMove(e: PointerEvent) {
+      // Track cursor position for glow effect
+      if (container) {
+        const r = container.getBoundingClientRect();
+        d.mouseX = e.clientX - r.left;
+        d.mouseY = e.clientY - r.top;
+      }
+
+      if (!d.active) return;
+      const dx = e.clientX - d.lastX;
+      const dy = e.clientY - d.lastY;
+      d.velY = dx * DRAG_SENSITIVITY;
+      d.velX = -dy * DRAG_SENSITIVITY;
+      d.lastX = e.clientX;
+      d.lastY = e.clientY;
     }
-    (container || canvas).addEventListener("mousemove", onMouseMove);
-    (container || canvas).addEventListener("mouseleave", onMouseLeave);
+    function onPointerUp() {
+      d.active = false;
+    }
+    function onPointerLeave() {
+      d.active = false;
+      d.mouseX = -9999;
+      d.mouseY = -9999;
+    }
+
+    canvas.addEventListener("pointerdown", onPointerDown);
+    canvas.addEventListener("pointermove", onPointerMove);
+    canvas.addEventListener("pointerup", onPointerUp);
+    canvas.addEventListener("pointerleave", onPointerLeave);
+    canvas.style.touchAction = "none"; // prevent scroll while dragging globe
+    canvas.style.cursor = "grab";
 
     let time = 0;
-    let smoothSpeed = BASE_SPEED;
 
     function draw() {
       if (!canvas || !ctx) return;
       const cw = canvas.clientWidth;
       const ch = canvas.clientHeight;
       ctx.clearRect(0, 0, cw, ch);
+      const cx = cw / 2, cy = ch / 2;
 
-      const cx = cw / 2;
-      const cy = ch / 2;
-      const m = mouse.current;
+      // Apply velocity + friction
+      if (!d.active) {
+        d.velY *= FRICTION;
+        d.velX *= FRICTION;
+        // Auto-rotate when no drag momentum
+        if (Math.abs(d.velY) < 0.0001) d.velY = 0;
+        d.angleY += d.velY || AUTO_SPEED;
+        d.angleX += d.velX;
+      } else {
+        d.angleY += d.velY;
+        d.angleX += d.velX;
+        canvas.style.cursor = "grabbing";
+      }
+      if (!d.active) canvas.style.cursor = "grab";
 
-      // Smooth speed transition
-      const targetSpeed = m.over ? HOVER_SPEED : BASE_SPEED;
-      smoothSpeed += (targetSpeed - smoothSpeed) * 0.03;
+      // Clamp X rotation to avoid flipping
+      d.angleX = Math.max(-1.2, Math.min(1.2, d.angleX));
 
-      // Mouse-driven tilt
-      const tY = (m.nx - 0.5) * 0.5;
-      const tX = (m.ny - 0.5) * -0.35;
-      const ry = time * smoothSpeed + tY;
-      const rx = 0.2 + tX;
+      const rotYAngle = d.angleY;
+      const rotXAngle = d.angleX;
 
       const style = getComputedStyle(document.documentElement);
       const color = style.getPropertyValue("--c-text").trim() || "#888";
       ctx.strokeStyle = color;
       ctx.fillStyle = color;
 
-      // Helper: transform, optionally bulge toward cursor, then project
-      function transformAndProject(p: Vec3, radius: number): { x: number; y: number; z: number; alpha: number } {
-        let pt = rotY(p, ry);
-        pt = rotX(pt, rx);
+      // Transform + optional cursor glow/bulge
+      function tp(p: Vec3, radius: number) {
+        let pt = rY(p, rotYAngle);
+        pt = rX(pt, rotXAngle);
         const s = proj(pt, cx, cy);
-
-        // Depth-based base alpha
         let alpha = 0.06 + 0.18 * ((radius - pt.z) / (radius * 2));
 
-        // Cursor proximity glow + bulge
-        if (m.over) {
-          const dx = s.x - m.px;
-          const dy = s.y - m.py;
-          const dist = Math.sqrt(dx * dx + dy * dy);
+        if (d.mouseX > 0) {
+          const ddx = s.x - d.mouseX;
+          const ddy = s.y - d.mouseY;
+          const dist = Math.sqrt(ddx * ddx + ddy * ddy);
           if (dist < CURSOR_GLOW_R) {
             const t = 1 - dist / CURSOR_GLOW_R;
-            alpha += t * 0.4; // brighter near cursor
-            // Bulge: push point outward from sphere center toward cursor
+            alpha += t * 0.35;
             const bulge = t * t * CURSOR_BULGE;
-            s.x += (s.x - cx) / Math.max(1, Math.sqrt((s.x - cx) ** 2 + (s.y - cy) ** 2)) * bulge;
-            s.y += (s.y - cy) / Math.max(1, Math.sqrt((s.x - cx) ** 2 + (s.y - cy) ** 2)) * bulge;
+            const fromCenter = Math.sqrt((s.x - cx) ** 2 + (s.y - cy) ** 2) || 1;
+            s.x += ((s.x - cx) / fromCenter) * bulge;
+            s.y += ((s.y - cy) / fromCenter) * bulge;
           }
         }
-
         return { x: s.x, y: s.y, z: pt.z, alpha: Math.max(0.03, Math.min(0.7, alpha)) };
       }
 
-      // ─── Sphere wireframe ───
+      // ── Sphere ──
       ctx.lineWidth = 0.7;
-
-      // Longitude
       for (let i = 0; i < LON_COUNT; i++) {
         const lon = (i / LON_COUNT) * Math.PI * 2;
         ctx.beginPath();
@@ -155,15 +197,12 @@ export default function OrbitalGlobe() {
             y: Math.sin(lat) * SPHERE_R,
             z: Math.cos(lat) * Math.cos(lon) * SPHERE_R,
           };
-          const s = transformAndProject(p, SPHERE_R);
+          const s = tp(p, SPHERE_R);
           ctx.globalAlpha = s.alpha;
-          if (j === 0) ctx.moveTo(s.x, s.y);
-          else ctx.lineTo(s.x, s.y);
+          j === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y);
         }
         ctx.stroke();
       }
-
-      // Latitude
       for (let i = 1; i < LAT_COUNT; i++) {
         const lat = (i / LAT_COUNT) * Math.PI - Math.PI / 2;
         ctx.beginPath();
@@ -174,15 +213,14 @@ export default function OrbitalGlobe() {
             y: Math.sin(lat) * SPHERE_R,
             z: Math.cos(lat) * Math.cos(lon) * SPHERE_R,
           };
-          const s = transformAndProject(p, SPHERE_R);
+          const s = tp(p, SPHERE_R);
           ctx.globalAlpha = s.alpha;
-          if (j === 0) ctx.moveTo(s.x, s.y);
-          else ctx.lineTo(s.x, s.y);
+          j === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y);
         }
         ctx.stroke();
       }
 
-      // ─── Orbiting rings ───
+      // ── Rings ──
       RINGS.forEach((ring) => {
         const phase = time * ring.speed;
         ctx.lineWidth = 1;
@@ -194,25 +232,20 @@ export default function OrbitalGlobe() {
             y: 0,
             z: Math.sin(angle) * ring.radius,
           };
-          p = rotX(p, ring.tiltX);
-          p = rotZ(p, ring.tiltZ);
-          const s = transformAndProject(p, ring.radius);
+          p = rX(p, ring.tiltX);
+          p = rZ(p, ring.tiltZ);
+          const s = tp(p, ring.radius);
           ctx.globalAlpha = s.alpha;
-          if (j === 0) ctx.moveTo(s.x, s.y);
-          else ctx.lineTo(s.x, s.y);
+          j === 0 ? ctx.moveTo(s.x, s.y) : ctx.lineTo(s.x, s.y);
         }
         ctx.stroke();
 
         // Orbiting dot
-        const dotAngle = phase * 3;
-        let dp: Vec3 = {
-          x: Math.cos(dotAngle) * ring.radius,
-          y: 0,
-          z: Math.sin(dotAngle) * ring.radius,
-        };
-        dp = rotX(dp, ring.tiltX);
-        dp = rotZ(dp, ring.tiltZ);
-        const ds = transformAndProject(dp, ring.radius);
+        const da = phase * 3;
+        let dp: Vec3 = { x: Math.cos(da) * ring.radius, y: 0, z: Math.sin(da) * ring.radius };
+        dp = rX(dp, ring.tiltX);
+        dp = rZ(dp, ring.tiltZ);
+        const ds = tp(dp, ring.radius);
         ctx.globalAlpha = Math.min(0.8, ds.alpha + 0.3);
         ctx.beginPath();
         ctx.arc(ds.x, ds.y, 3, 0, Math.PI * 2);
@@ -234,8 +267,10 @@ export default function OrbitalGlobe() {
 
     return () => {
       window.removeEventListener("resize", resize);
-      (container || canvas).removeEventListener("mousemove", onMouseMove);
-      (container || canvas).removeEventListener("mouseleave", onMouseLeave);
+      canvas.removeEventListener("pointerdown", onPointerDown);
+      canvas.removeEventListener("pointermove", onPointerMove);
+      canvas.removeEventListener("pointerup", onPointerUp);
+      canvas.removeEventListener("pointerleave", onPointerLeave);
       cancelAnimationFrame(raf.current);
     };
   }, [reduced]);
