@@ -1,17 +1,201 @@
 ---
+import Layout from "../layouts/Layout.astro";
+import HeroSection from "../components/HeroSection.tsx";
+import ThemeToggle from "../components/ThemeToggle.tsx";
+import ProjectRow from "../components/ProjectRow.tsx";
+import TextScramble from "../components/TextScramble.tsx";
+import ExperienceRow from "../components/ExperienceRow.tsx";
+import OrbitalGlobe from "../components/OrbitalGlobe.tsx";
 
+const projects = [
+  {
+    num: "01",
+    title: "JobFlow",
+    desc: "Job search automation platform. Aggregates 3,000+ postings across 15 ATS sources and auto-applies via a headless Playwright engine.",
+    href: "https://github.com/felixzhou05/jobflow",
+    color: "oklch(0.5 0.2 260)",   /* indigo */
+  },
+  {
+    num: "02",
+    title: "Kuro",
+    desc: "Autonomous multi-agent AI ecosystem on AWS EC2. Specialized agents with shared memory architecture and trend analysis engine.",
+    href: "https://github.com/felixzhou05",
+    color: "oklch(0.5 0.2 330)",   /* magenta */
+  },
+  {
+    num: "03",
+    title: "AvitaPaws",
+    desc: "Full-stack e-commerce platform with MBTI personality classification. React, TypeScript, Stripe, MongoDB. Nine pages shipped end-to-end.",
+    href: "https://github.com/felixzhou05/Website",
+    color: "oklch(0.55 0.18 155)", /* emerald */
+  },
+  {
+    num: "04",
+    title: "PhishNet",
+    desc: "URL phishing classifier. Feature-engineering pipeline with logistic regression baseline, exploring transformer comparisons.",
+    href: "https://github.com/felixzhou05",
+    color: "oklch(0.6 0.18 80)",   /* amber */
+  },
+  {
+    num: "05",
+    title: "FRC 9113",
+    desc: "Lead programmer for FIRST Robotics. Autonomous navigation with PID control, tele-operated systems, sensor integration.",
+    href: "https://github.com/felixzhou05/FRC-Programming-Team-9113",
+    color: "oklch(0.5 0.2 15)",    /* vermillion */
+  },
+];
+
+const experience = [
+  {
+    role: "Equity Research Analyst",
+    company: "Midnight Capital",
+    period: "2024 — 2025",
+    desc: "Selected as one of ten analysts for a competitive program. Fundamental analysis on Alteryx — financial statements, competitive positioning, DCF and comparable-company valuation models.",
+    color: "oklch(0.45 0.18 240)", /* deep sapphire */
+  },
+  {
+    role: "Full-Stack Developer",
+    company: "AvitaPaws",
+    period: "2024 — 2025",
+    desc: "Rebuilt a static HTML site into a React + TypeScript + Express + MongoDB platform with Stripe checkout, JWT auth, and MBTI-based product recommendations.",
+    color: "oklch(0.5 0.18 190)",  /* teal */
+  },
+];
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<Layout>
+  <!-- ─── Nav ─── -->
+  <nav class="fixed top-0 inset-x-0 z-50 mix-blend-difference">
+    <div class="max-w-[90rem] mx-auto px-6 md:px-12 py-5 flex items-center justify-between">
+      <a href="#" class="t-label text-white/60 hover:text-white transition-colors">Happy Zhou</a>
+      <div class="flex items-center gap-5 md:gap-6">
+        <a href="#about" class="t-label text-white/60 hover:text-white transition-colors hidden sm:block">About</a>
+        <a href="#work" class="t-label text-white/60 hover:text-white transition-colors">Work</a>
+        <a href="#experience" class="t-label text-white/60 hover:text-white transition-colors hidden sm:block">Experience</a>
+        <a href="#contact" class="t-label text-white/60 hover:text-white transition-colors">Contact</a>
+        <a href="/Happy_Zhou_Resume.docx" download class="t-label text-white/60 hover:text-white transition-colors">Resume</a>
+        <ThemeToggle client:load />
+      </div>
+    </div>
+  </nav>
+
+  <!-- ─── Hero ─── -->
+  <section class="min-h-[100svh] flex flex-col justify-end px-6 md:px-12 pb-16 md:pb-24 relative overflow-hidden">
+    <div class="absolute inset-0 -z-10" aria-hidden="true">
+      <div class="hero-blob blob-1"></div>
+      <div class="hero-blob blob-2"></div>
+      <div class="hero-blob blob-3"></div>
+    </div>
+
+    <!-- Wireframe globe with orbiting rings — right side -->
+    <div class="absolute inset-0 md:left-[40%] pointer-events-none md:pointer-events-auto opacity-30 md:opacity-100 [&>*]:block [&>*]:w-full [&>*]:h-full">
+      <OrbitalGlobe client:load />
+    </div>
+
+    <div class="max-w-[90rem] mx-auto w-full relative z-10">
+      <HeroSection client:load />
+    </div>
+  </section>
+
+  <!-- ━━━━━ ABOUT ━━━━━ -->
+  <section id="about" class="px-6 md:px-12 py-28 md:py-40 relative overflow-hidden">
+    <!-- Subtle background accent for about -->
+    <div class="absolute inset-0 -z-10 opacity-[0.04]" aria-hidden="true"
+      style="background: radial-gradient(ellipse 80% 60% at 50% 40%, var(--c-text), transparent)">
+    </div>
+
+    <div class="max-w-[90rem] mx-auto grid md:grid-cols-[5rem_1fr] gap-4 md:gap-8">
+      <span class="t-label text-ink-2 reveal">About</span>
+      <div class="max-w-3xl">
+        <p class="t-section font-display">
+          <TextScramble
+            client:visible
+            text="CS at Western University, graduating 2027. Previously equity research at Midnight Capital. I build automation platforms, AI agent systems, and full-stack applications."
+            speed={1}
+          />
+        </p>
+        <p class="t-desc text-ink-2 mt-8 reveal">
+          Focused on the space where finance meets software. Looking for Summer 2026 internships in Toronto.
+        </p>
+        <div class="flex flex-wrap gap-3 mt-8 reveal">
+          {["Western CS '27", "AI / ML", "Full-Stack SWE", "Finance"].map((tag) => (
+            <span class="t-label text-ink-2 border border-line rounded-full px-3 py-1">{tag}</span>
+          ))}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ━━━━━ PROJECTS ━━━━━ -->
+  <div id="work" class="border-t border-b border-line py-6 md:py-8 marquee">
+    <div class="marquee-track font-display font-700 text-[clamp(1.5rem,3vw,2.5rem)] uppercase tracking-tight text-ink-2">
+      {Array.from({ length: 10 }).map(() => (
+        <span class="inline-block px-4">Selected Work&ensp;&mdash;</span>
+      ))}
+    </div>
+  </div>
+
+  <section class="px-6 md:px-12">
+    <div class="max-w-[90rem] mx-auto">
+      {projects.map((p) => (
+        <ProjectRow
+          client:visible
+          num={p.num}
+          title={p.title}
+          desc={p.desc}
+          href={p.href}
+          color={p.color}
+        />
+      ))}
+      <div class="border-t border-line"></div>
+    </div>
+  </section>
+
+  <!-- ━━━━━ EXPERIENCE ━━━━━ -->
+  <div id="experience" class="border-t border-b border-line py-6 md:py-8 marquee mt-20 md:mt-28">
+    <div class="marquee-track font-display font-700 text-[clamp(1.5rem,3vw,2.5rem)] uppercase tracking-tight text-ink-2" style="animation-direction: reverse;">
+      {Array.from({ length: 10 }).map(() => (
+        <span class="inline-block px-4">Experience&ensp;&mdash;</span>
+      ))}
+    </div>
+  </div>
+
+  <section class="px-6 md:px-12 pb-20 md:pb-28">
+    <div class="max-w-[90rem] mx-auto">
+      {experience.map((exp) => (
+        <ExperienceRow
+          client:visible
+          role={exp.role}
+          company={exp.company}
+          period={exp.period}
+          desc={exp.desc}
+          color={exp.color}
+        />
+      ))}
+      <div class="border-t border-line"></div>
+    </div>
+  </section>
+
+  <!-- ━━━━━ CONTACT ━━━━━ -->
+  <section id="contact" class="px-6 md:px-12 py-28 md:py-40">
+    <div class="max-w-[90rem] mx-auto grid md:grid-cols-[5rem_1fr] gap-4 md:gap-8">
+      <span class="t-label text-ink-2 reveal">Contact</span>
+      <div>
+        <h2 class="t-section reveal">Let's talk.</h2>
+        <div class="flex flex-col sm:flex-row gap-4 sm:gap-8 mt-6 reveal">
+          <a href="mailto:jzhou744@uwo.ca" class="t-desc text-ink-2 hover:text-ink transition-colors">jzhou744@uwo.ca</a>
+          <a href="https://github.com/felixzhou05" target="_blank" rel="noopener noreferrer" class="t-desc text-ink-2 hover:text-ink transition-colors">GitHub</a>
+          <a href="https://www.linkedin.com/in/felixzhou05/" target="_blank" rel="noopener noreferrer" class="t-desc text-ink-2 hover:text-ink transition-colors">LinkedIn</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Footer ─── -->
+  <footer class="px-6 md:px-12 py-8 border-t border-line">
+    <div class="max-w-[90rem] mx-auto flex items-center justify-between">
+      <p class="t-small text-ink-2">&copy; 2026</p>
+      <a href="#" class="t-small text-ink-2 hover:text-ink transition-colors">Top &uarr;</a>
+    </div>
+  </footer>
+</Layout>
